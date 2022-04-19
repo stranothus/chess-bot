@@ -1,7 +1,6 @@
 import * as discord from "discord.js";
 import * as dotenv from "dotenv";
-import { Chess } from "chess.ts";
-import ChessImageGenerator from "chess-image-generator-ts";
+import CustomChess from "./customChess";
 import * as fs from "fs";
 
 dotenv.config();
@@ -25,11 +24,10 @@ client.on("ready", (): void => {
 client.on("messageCreate", async (msg: discord.Message): Promise<void> => {
     if(msg.author.bot) return;
 
-    const game: Chess = new Chess();
-    const image: ChessImageGenerator = new ChessImageGenerator();
-    await image.loadFEN(game.fen());
-    await image.generatePNG("./image.png");
-    const attachment: discord.MessageAttachment = new discord.MessageAttachment("./image.png", "image.png");
+    const game: CustomChess = new CustomChess();
+    await game.image({ url: "./image.png" });
+
+    // new discord.MessageAttachment("./image.png", "image.png");
 
     const embed: discord.MessageEmbed = new discord.MessageEmbed()
         .setImage("attachment://image.png");
@@ -77,15 +75,14 @@ client.on("messageCreate", async (msg: discord.Message): Promise<void> => {
                 });
             } else {
                 game.move(move, { sloppy: true });
-                const image: ChessImageGenerator = new ChessImageGenerator();
-                await image.loadFEN(game.fen());
-                await image.generatePNG("./image.png");
-                const attachment: discord.MessageAttachment = new discord.MessageAttachment("./image.png", "image.png");
+                await game.image({ url: "./image.png" });
+
+                // new discord.MessageAttachment("./image.png", "image.png");
             
                 const embed: discord.MessageEmbed = new discord.MessageEmbed()
                     .setImage("attachment://image.png");
                 
-                await msg.channel.send({
+                await interaction.reply({
                     content: "Would you like to make this move?",
                     embeds: [embed],
                     components: [new discord.MessageActionRow().setComponents(
@@ -99,7 +96,8 @@ client.on("messageCreate", async (msg: discord.Message): Promise<void> => {
                             .setLabel("No")
 
                     )],
-                    files: [ "./image.png" ]
+                    files: [ "./image.png" ],
+                    ephemeral: true
                 });
 
                 collector.stop();
@@ -109,11 +107,10 @@ client.on("messageCreate", async (msg: discord.Message): Promise<void> => {
                     if(interaction.customId === "yes") {
                         interaction.reply("Move made");
                     } else {
+                        game.undo();
                         interaction.reply("Doing this all over again");
                     }
                 });
-                
-                game.undo();
             }
         } else {
             interaction.reply({
