@@ -105,11 +105,23 @@ client.on("messageCreate", async (msg: discord.Message): Promise<void> => {
                     if(interaction.customId === "yes") {
                         await interaction.reply("Move made");
 
-                        await msg.channel.send({
-                            content: `<@${currentGame[(currentGame.white === msg.author.id ? "black" : "white")]}> your turn`,
-                            embeds: [embed],
-                            files: [ "./image.png" ]
-                        });
+                        if(currentGame.game.gameOver()) {
+                            await msg.channel.send({
+                                content: `Game is over!`,
+                                embeds: [embed],
+                                files: [ "./image.png" ]
+                            });
+
+                            games.splice(games.map((v: Game, i: number): number => currentGame.channel === v.channel ? i : 0).filter((v: number): boolean => !!v)[0]);
+                        } else {
+                            await msg.channel.send({
+                                content: `${currentGame.game.inCheck() ? "Check! " : ""}<@${currentGame[(currentGame.white === msg.author.id ? "black" : "white")]}> your turn`,
+                                embeds: [embed],
+                                files: [ "./image.png" ]
+                            });
+
+                            games[games.map((v: Game, i: number): number => currentGame.channel === v.channel ? i : 0).filter((v: number): boolean => !!v)[0]].game = currentGame.game;
+                        }
                     } else {
                         game.undo();
                         await interaction.reply("Doing this all over again");
