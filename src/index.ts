@@ -21,68 +21,67 @@ client.on("ready", (): void => {
     console.log(`Client logged in as ${client.user.tag}`);
 });
 
+interface Game {
+    game: CustomChess,
+    white: string,
+    black: string,
+    channel: string
+}
+
+let games: Game[] = [];
+
 client.on("messageCreate", async (msg: discord.Message): Promise<void> => {
     if(msg.author.bot) return;
 
-    const game: CustomChess = new CustomChess();
-    await game.image({ url: "./image.png" });
+    switch(msg.content.replace(/^\+/, "")?.split(" ")?.[0]?.toLowerCase()) {
+        case "start":
+            const opponent = msg.content.match(/<@&?(\d{17,19})>/)?.[0].match(/\d+/)[0];
 
-    // new discord.MessageAttachment("./image.png", "image.png");
+            if(!opponent) {
+                await msg.channel.send("Please mention a user to play with");
+                return;
+            }
 
-    const embed: discord.MessageEmbed = new discord.MessageEmbed()
-        .setImage("attachment://image.png");
+            if(games.filter((v: Game): boolean => v.channel === msg.channel.id).length) {
+                await msg.channel.send("There is already a game in this channel");
+                return;
+            }
+
+            const game: CustomChess = new CustomChess();
+            await game.image({ url: "./image.png" });
         
-    const buttons = "ABCDEFGH12345678".split("").map((v: string): discord.MessageButton => new discord.MessageButton()
-        .setCustomId(v)
-        .setStyle("SECONDARY")
-        .setLabel(v)
-    );
-    const actionRows = [
-        new discord.MessageActionRow()
-            .setComponents(...buttons.slice(0, 4)),
-        new discord.MessageActionRow()
-            .setComponents(...buttons.slice(4, 8)),
-        new discord.MessageActionRow()
-            .setComponents(...buttons.slice(8, 12)),
-        new discord.MessageActionRow()
-            .setComponents(...buttons.slice(12, 16)),
-    ];
-    
-
-    const board: discord.Message = await msg.channel.send({
-        embeds: [embed],
-        components: actionRows,
-        files: [ "./image.png" ]
-    });
-
-    fs.rmSync("./image.png");
-
-    const filter: discord.CollectorFilter<[discord.MessageComponentInteraction]> = (interaction: discord.ButtonInteraction): boolean => interaction.user.id === msg.author.id;
-    const collector = msg.channel.createMessageComponentCollector({ filter });
-
-    let move = "";
-    collector.on('collect', async (interaction: discord.ButtonInteraction): Promise<void> => {
-        const id = interaction.customId.toLowerCase();
-        const regex = /[a-h]/.test(move.split("").reverse()[0]) && move ? /[1-8]/ : /[a-h]/;
-
-        if(regex.test(id)) {
-            move += id;
-
-            if(move.length < 4) {
-                interaction.reply({
-                    content: `Your move so far is ${move}`,
-                    ephemeral: true
-                });
-            } else {
-                game.move(move, { sloppy: true });
-                await game.image({ url: "./image.png" });
-
-                // new discord.MessageAttachment("./image.png", "image.png");
+            const embed: discord.MessageEmbed = new discord.MessageEmbed()
+                .setImage("attachment://image.png");
             
+            await msg.channel.send({
+                content: `<@${msg.author.id}> make the first move`,
+                embeds: [embed],
+                files: [ "./image.png" ]
+            });
+
+            games.push({
+                game: game,
+                white: msg.author.id,
+                black: opponent,
+                channel: msg.channel.id
+            });
+        break;
+        case "move":
+            const move = msg.content.replace(/^\+/, "")?.split(" ")?.slice(1).join(" ");
+            const currentGame = games.filter((v: Game): boolean => v.channel === msg.channel.id)[0];
+
+            if(currentGame[(currentGame.game.turn() === "w" ? "white" : "black") as keyof Game] !== msg.author.id) {
+                await msg.channel.send("This is either not your game or not your turn");
+                return;
+            }
+
+            if(currentGame.game.move(move, { sloppy: true })) {
+                await currentGame.game.image({ url: "./image.png" });
+
                 const embed: discord.MessageEmbed = new discord.MessageEmbed()
                     .setImage("attachment://image.png");
-                
-                await interaction.reply({
+
+                await msg.channel.send({
                     content: "Would you like to make this move?",
                     embeds: [embed],
                     components: [new discord.MessageActionRow().setComponents(
@@ -96,29 +95,31 @@ client.on("messageCreate", async (msg: discord.Message): Promise<void> => {
                             .setLabel("No")
 
                     )],
-                    files: [ "./image.png" ],
-                    ephemeral: true
+                    files: [ "./image.png" ]
                 });
 
-                collector.stop();
-                const yesorno = msg.channel.createMessageComponentCollector({ filter, max: 1 });
+                const filter: discord.CollectorFilter<[discord.MessageComponentInteraction]> = (interaction: discord.ButtonInteraction): boolean => interaction.user.id === msg.author.id;
+                const yesorno: discord.InteractionCollector<discord.MessageComponentInteraction> = msg.channel.createMessageComponentCollector({ filter, max: 1 });
 
-                yesorno.on("collect", (interaction: discord.ButtonInteraction): void => {
+                yesorno.on("collect", async (interaction: discord.ButtonInteraction): Promise<void> => {
                     if(interaction.customId === "yes") {
-                        interaction.reply("Move made");
+                        await interaction.reply("Move made");
+
+                        await msg.channel.send({
+                            content: `<@${currentGame[(currentGame.white === msg.author.id ? "black" : "white")]}> your turn`,
+                            embeds: [embed],
+                            files: [ "./image.png" ]
+                        });
                     } else {
                         game.undo();
-                        interaction.reply("Doing this all over again");
+                        await interaction.reply("Doing this all over again");
                     }
                 });
+            } else {
+                msg.channel.send("That is not a valid move");
             }
-        } else {
-            interaction.reply({
-                content: /[1-8]/.test(id) ? "Please select a letter" : "Please select a number",
-                ephemeral: true
-            });
-        }
-    });
+        break;
+    }
 });
 
 client.login(process.env.TOKEN);
