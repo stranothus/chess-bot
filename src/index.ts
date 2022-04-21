@@ -120,10 +120,10 @@ client.on("messageCreate", async (msg: discord.Message): Promise<void> => {
                                 files: [ "./image.png" ]
                             });
 
-                            games[games.map((v: Game, i: number): number => currentGame.channel === v.channel ? i : 0).filter((v: number): boolean => !!v)[0]].game = currentGame.game;
+                            games[games.map((v: Game, i: number): number => currentGame.channel === v.channel ? i + 1 : 0).filter((v: number): boolean => !!v)[0] - 1].game = currentGame.game;
                         }
                     } else {
-                        game.undo();
+                        currentGame.game.undo();
                         await interaction.reply("Doing this all over again");
                     }
                 });
