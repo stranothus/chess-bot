@@ -107,7 +107,7 @@ client.on("messageCreate", async (msg: discord.Message): Promise<void> => {
 
                         if(currentGame.game.gameOver()) {
                             await msg.channel.send({
-                                content: `Game is over!`,
+                                content: `Game is over! <@${currentGame[currentGame.game.turn() === "b" ? "white" : "black"]}> wins!`,
                                 embeds: [embed],
                                 files: [ "./image.png" ]
                             });
