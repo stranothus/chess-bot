@@ -139,6 +139,39 @@ client.on("messageCreate", async (msg: discord.Message): Promise<void> => {
                 msg.channel.send("That is not a valid move");
             }
         break;
+        case "fen":
+            const fenGame = games.filter((v: Game): boolean => v.channel === msg.channel.id)[0];
+
+            if(fenGame) {
+                await msg.reply(fenGame.game.fen());
+            } else {
+                await msg.reply("No game found in this channel");
+            }
+        break;
+        case "display":
+            const fen = msg.content.replace(/\+display\s*/, "");
+
+            if(!fen) {
+                await msg.reply("No fen found");
+                return;
+            }
+
+            try {
+                const displayGame = new CustomChess(fen);
+
+                await displayGame.image({ url: "./image.png" });
+            
+                const displayGameEmbed: discord.MessageEmbed = new discord.MessageEmbed()
+                    .setImage("attachment://image.png");
+                
+                await msg.reply({
+                    embeds: [displayGameEmbed],
+                    files: [ "./image.png" ]
+                });
+            } catch(e) {
+                msg.reply("There was something wrong with that fen");
+            }
+        break;
     }
 });
 
