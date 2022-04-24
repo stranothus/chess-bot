@@ -107,7 +107,15 @@ client.on("messageCreate", async (msg: discord.Message): Promise<void> => {
 
                         if(currentGame.game.gameOver()) {
                             await msg.channel.send({
-                                content: `Game is over! <@${currentGame[currentGame.game.turn() === "b" ? "white" : "black"]}> wins!`,
+                                content: `Game is over! ${
+                                    currentGame.game.inCheckmate() ?
+                                    `<@${
+                                        currentGame[currentGame.game.turn() === "b" ? "white" : "black"]
+                                    }> wins!` :
+                                    currentGame.game.inDraw() ? " It's a draw!" :
+                                    currentGame.game.inStalemate() ? " It's a stalemate!" :
+                                    currentGame.game.inThreefoldRepetition() ? " It's a draw by threefold repetion!" : ""
+                                }`,
                                 embeds: [embed],
                                 files: [ "./image.png" ]
                             });
