@@ -35,17 +35,23 @@ client.on("messageCreate", async (msg: discord.Message): Promise<void> => {
 
     switch(msg.content.replace(/^\+/, "")?.split(" ")?.[0]?.toLowerCase()) {
         case "start":
-            const opponent = msg.content.match(/<@&?(\d{17,19})>/)?.[0].match(/\d+/)[0];
+            const opponent: string | null = msg.content.match(/<@&?(\d{17,19})>/)?.[0].match(/\d+/)[0];
+            const opponentObj: discord.GuildMember | null = await msg.guild.members.fetch(opponent).catch(err => null);
 
-            if(!opponent) {
+            if(!opponent || !opponentObj) {
                 await msg.channel.send("Please mention a user to play with");
                 return;
             }
 
-            if(games.filter((v: Game): boolean => v.channel === msg.channel.id).length) {
-                await msg.channel.send("There is already a game in this channel");
+            if(msg.channel.isThread()) {
+                await msg.channel.send("Please start a game in a channel, not a thread");
                 return;
             }
+
+            const channel: discord.TextChannel = msg.channel as discord.TextChannel;
+            const thread: discord.ThreadChannel = await channel.threads.create({
+                name: `${msg.author.username} vs ${opponentObj.user.username}`
+            });
 
             const game: CustomChess = new CustomChess();
             await game.image({ url: "./image.png" });
@@ -53,7 +59,7 @@ client.on("messageCreate", async (msg: discord.Message): Promise<void> => {
             const embed: discord.MessageEmbed = new discord.MessageEmbed()
                 .setImage("attachment://image.png");
             
-            await msg.channel.send({
+            await thread.send({
                 content: `<@${msg.author.id}> make the first move`,
                 embeds: [embed],
                 files: [ "./image.png" ]
@@ -63,7 +69,7 @@ client.on("messageCreate", async (msg: discord.Message): Promise<void> => {
                 game: game,
                 white: msg.author.id,
                 black: opponent,
-                channel: msg.channel.id
+                channel: thread.id
             });
         break;
         case "move":
